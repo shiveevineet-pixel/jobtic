@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Jobtic Interviewer</string>
+    <string name="title_activity_main">Jobtic Interviewer</string>
+    <string name="package_name">com.jobtic.interviewer</string>
+    <string name="custom_url_scheme">com.jobtic.interviewer</string>
+</resources>

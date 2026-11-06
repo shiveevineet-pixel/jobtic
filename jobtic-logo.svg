@@ -1,0 +1,14 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1920" height="1080" fill="#FFFFFF"/>
+
+  <!-- icon -->
+  <g transform="translate(498,390)">
+    <rect x="0" y="0" width="300" height="300" rx="84" fill="#15132B"/>
+    <path d="M95,150 L130,195" fill="none" stroke="#8C85F5" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M130,195 L215,95" fill="none" stroke="#1FCB8B" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="858" y="615" font-family="Liberation Sans, Arial, sans-serif" font-weight="700" font-size="210" fill="#15132B">jobtic</text>
+  <rect x="1175" y="642" width="240" height="13" rx="6.5" fill="#1FCB8B"/>
+</svg>
