@@ -24,6 +24,7 @@ export const InterviewRoomView: React.FC = () => {
     speakText,
     stopSpeaking,
     isListening,
+    isTranscribing,
     transcript,
     interimText,       // ← live word-by-word preview
     startListening,
@@ -37,6 +38,7 @@ export const InterviewRoomView: React.FC = () => {
   const [typedAnswer, setTypedAnswer] = useState('');
   const [useKeyboard, setUseKeyboard] = useState(false);
   const [isQuestionSpeaking, setIsQuestionSpeaking] = useState(true);
+  const [hasUserStartedMic, setHasUserStartedMic] = useState(false);
 
   const currentQuestion = currentSession?.questions[currentQuestionIndex];
 
@@ -82,9 +84,10 @@ export const InterviewRoomView: React.FC = () => {
   }, [transcript]);
 
   const hasSession = !!currentSession;
-  // ─── Auto-coordinate microphone: ONLY listen when AI is completely done speaking ───
+  // ─── Auto-coordinate microphone: listen when AI finishes speaking (only if user has initiated voice mode) ───
   useEffect(() => {
     if (
+      hasUserStartedMic &&
       recognitionSupported &&
       !speechError &&
       !useKeyboard &&
@@ -93,11 +96,11 @@ export const InterviewRoomView: React.FC = () => {
       hasSession &&
       !isLoading
     ) {
-      startListening();
+      void startListening();
     } else if (isSpeaking || isQuestionSpeaking) {
       stopListening();
     }
-  }, [isSpeaking, isQuestionSpeaking, useKeyboard, isLoading, hasSession, recognitionSupported, startListening, stopListening, speechError]);
+  }, [hasUserStartedMic, isSpeaking, isQuestionSpeaking, useKeyboard, isLoading, hasSession, recognitionSupported, startListening, stopListening, speechError]);
 
   useEffect(() => {
     return () => {
@@ -129,11 +132,12 @@ export const InterviewRoomView: React.FC = () => {
     return 'idle';
   };
 
-  const handleMicToggle = () => {
+  const handleMicToggle = async () => {
     if (isListening) {
       stopListening();
     } else {
-      startListening();
+      setHasUserStartedMic(true);
+      await startListening();
     }
   };
 
@@ -283,16 +287,14 @@ export const InterviewRoomView: React.FC = () => {
               )}
               {!displayedText && (
                 <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', display: 'block', fontSize: '14px', lineHeight: '1.4' }}>
-                  {speechError ? (
-                    speechError === 'not-allowed' ? (
-                      <span style={{ color: 'var(--danger)', fontWeight: 500 }}>
-                        ⚠️ Microphone access is blocked. Please allow mic permissions in your browser settings, or tap the "Type" button above to type your answer.
-                      </span>
-                    ) : (
-                      <span style={{ color: 'var(--warning)', fontWeight: 500 }}>
-                        ⚠️ Speech recognition failed ({speechError}). If using Brave, enable "Google Services for Web Speech API" in <code>brave://settings/shields</code>, or tap the "Type" button to type.
-                      </span>
-                    )
+                  {isTranscribing ? (
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>
+                      Transcribing your voice answer…
+                    </span>
+                  ) : speechError === 'not-allowed' ? (
+                    <span style={{ color: 'var(--danger)', fontWeight: 500 }}>
+                      ⚠️ Microphone access is blocked. Please allow mic permissions in your browser address bar, or tap the "Type" button above to type your answer.
+                    </span>
                   ) : isListening ? (
                     'Speak now – your words will appear here in real-time…'
                   ) : (
@@ -310,14 +312,18 @@ export const InterviewRoomView: React.FC = () => {
             <button
               className={`mic-btn ${isListening ? 'active' : ''}`}
               onClick={handleMicToggle}
-              disabled={isLoading}
+              disabled={isLoading || isTranscribing}
               aria-label={isListening ? 'Stop listening' : 'Start listening'}
             >
               {isListening ? <Mic size={32} /> : <MicOff size={32} />}
               {isListening && <div className="mic-ripple" />}
             </button>
             <span className="mic-instructions">
-              {isListening ? 'Tap to STOP recording' : 'Tap mic to START speaking'}
+              {isTranscribing
+                ? 'Processing voice transcription…'
+                : isListening
+                ? 'Tap to STOP recording'
+                : 'Tap mic to START speaking'}
             </span>
             {/* Keyboard escape hint */}
             <span style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '2px' }}>

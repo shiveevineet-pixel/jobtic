@@ -22,6 +22,7 @@ export const ChatInterviewRoomView: React.FC = () => {
     speakText,
     stopSpeaking,
     isListening,
+    isTranscribing,
     transcript,
     interimText,
     startListening,
@@ -199,7 +200,10 @@ export const ChatInterviewRoomView: React.FC = () => {
 
       {/* Input / Control Panel */}
       <div className="chat-input-controls glass">
-        {speechError && <p className="caption" role="alert">Microphone transcription unavailable ({speechError}). You can type your response below.</p>}
+        {isTranscribing && <p className="caption" role="status">Transcribing your voice…</p>}
+        {speechError === 'not-allowed' && (
+          <p className="caption" role="alert">Microphone permission was blocked. Please allow mic access in your browser, or type below.</p>
+        )}
         <form onSubmit={handleSend} style={{ display: 'flex', width: '100%', gap: '8px', alignItems: 'center' }}>
           {/* Visualizer when listening */}
           {isListening && !useKeyboard && (
@@ -212,12 +216,12 @@ export const ChatInterviewRoomView: React.FC = () => {
           <button
             type="button"
             className={`control-circle-btn ${useKeyboard ? 'active' : ''}`}
-            disabled={!recognitionSupported || isLoading}
+            disabled={!recognitionSupported || isLoading || isTranscribing}
             aria-label={useKeyboard ? "Switch to voice" : "Switch to typing"}
             onClick={() => {
               if (useKeyboard) {
                 setUseKeyboard(false);
-                startListening();
+                void startListening();
               } else {
                 setUseKeyboard(true);
                 stopListening();
@@ -238,6 +242,8 @@ export const ChatInterviewRoomView: React.FC = () => {
             placeholder={
               useKeyboard
                 ? "Type your response here..."
+                : isTranscribing
+                ? "Transcribing voice response..."
                 : isListening
                 ? "Listening... Speak now or type..."
                 : "Tap the mic or type to respond..."
