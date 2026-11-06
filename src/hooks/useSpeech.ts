@@ -93,7 +93,15 @@ export const useSpeech = () => {
         isEdge: false,
         friendlyName: item.name
       }));
-      if (!nativeTts.isAvailable() && !cancelled) setVoices(sysVoices);
+      const cloudVoice: AppVoice = {
+        name: 'cloud-ai-voice',
+        lang: 'en-US',
+        isEdge: false,
+        friendlyName: 'Jobtic AI Voice (Natural)'
+      };
+      if (!nativeTts.isAvailable() && !cancelled) {
+        setVoices([cloudVoice, ...sysVoices]);
+      }
     };
 
     const updateNativeVoices = async () => {

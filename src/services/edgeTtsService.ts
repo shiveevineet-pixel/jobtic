@@ -22,6 +22,42 @@ const nativeVoiceIndex = (voiceId?: string) => {
   return Number.isInteger(index) && index >= 0 ? index : undefined;
 };
 
+function splitIntoChunks(text: string, maxLen = 180): string[] {
+  const clean = text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  if (!clean) return [];
+  if (clean.length <= maxLen) return [clean];
+
+  const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean];
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const sentence of sentences) {
+    const trimmed = sentence.trim();
+    if (!trimmed) continue;
+    if ((current + ' ' + trimmed).trim().length <= maxLen) {
+      current = (current + ' ' + trimmed).trim();
+    } else {
+      if (current) chunks.push(current);
+      if (trimmed.length <= maxLen) {
+        current = trimmed;
+      } else {
+        const words = trimmed.split(' ');
+        current = '';
+        for (const word of words) {
+          if ((current + ' ' + word).trim().length <= maxLen) {
+            current = (current + ' ' + word).trim();
+          } else {
+            if (current) chunks.push(current);
+            current = word;
+          }
+        }
+      }
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
 export const nativeTts = {
   isAvailable: () => Capacitor.isNativePlatform(),
 
@@ -41,11 +77,23 @@ export const nativeTts = {
 class TtsManager {
   private isStopped = false;
   private activeUtterance: SpeechSynthesisUtterance | null = null;
+  private activeAudio: HTMLAudioElement | null = null;
 
   public async stop(): Promise<void> {
     this.isStopped = true;
     const hadBrowserUtterance = this.activeUtterance !== null;
     this.activeUtterance = null;
+
+    if (this.activeAudio) {
+      try {
+        this.activeAudio.pause();
+        this.activeAudio.currentTime = 0;
+      } catch {
+        // audio element may already be detached
+      }
+      this.activeAudio = null;
+    }
+
     if (Capacitor.isNativePlatform()) {
       try {
         await TextToSpeech.stop();
@@ -82,7 +130,68 @@ class TtsManager {
       }
     }
 
-    await this.speakInBrowser(cleanText, voiceName, rate, pitch, onDone);
+    // On web: check if natural cloud voice requested or if system has 0 voices (e.g. Linux Chrome)
+    const browserVoices = (typeof window !== 'undefined' && window.speechSynthesis)
+      ? window.speechSynthesis.getVoices()
+      : [];
+
+    if (voiceName === 'cloud-ai-voice' || browserVoices.length === 0) {
+      await this.playAudioTts(cleanText, rate, onDone);
+      return;
+    }
+
+    try {
+      await this.speakInBrowser(cleanText, voiceName, rate, pitch, onDone);
+    } catch {
+      if (!this.isStopped) {
+        await this.playAudioTts(cleanText, rate, onDone);
+      }
+    }
+  }
+
+  public playAudioTts(text: string, rate = 1, onDone?: () => void): Promise<void> {
+    return new Promise(resolve => {
+      const chunks = splitIntoChunks(text, 180);
+      if (chunks.length === 0) {
+        onDone?.();
+        resolve();
+        return;
+      }
+
+      let currentIdx = 0;
+      const playNext = () => {
+        if (this.isStopped || currentIdx >= chunks.length) {
+          this.activeAudio = null;
+          if (!this.isStopped) onDone?.();
+          resolve();
+          return;
+        }
+
+        const chunk = chunks[currentIdx++];
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=en&client=tw-ob`;
+        const audio = new Audio(url);
+        this.activeAudio = audio;
+        audio.playbackRate = Math.max(0.7, Math.min(rate || 1.0, 1.4));
+
+        audio.onended = () => {
+          playNext();
+        };
+
+        audio.onerror = () => {
+          console.warn('Audio TTS chunk playback failed; advancing');
+          playNext();
+        };
+
+        audio.play().catch(err => {
+          console.warn('Audio play was prevented or failed:', err);
+          this.activeAudio = null;
+          if (!this.isStopped) onDone?.();
+          resolve();
+        });
+      };
+
+      playNext();
+    });
   }
 
   private async speakNatively(text: string, voiceName: string, rate: number, pitch: number) {
@@ -109,7 +218,7 @@ class TtsManager {
 
   private speakInBrowser(text: string, voiceName: string, rate: number, pitch: number, onDone?: () => void): Promise<void> {
     if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
-      return Promise.reject(new Error('No text-to-speech engine is available on this device.'));
+      return this.playAudioTts(text, rate, onDone);
     }
 
     return new Promise(resolve => {
@@ -150,9 +259,12 @@ class TtsManager {
       }
 
       let completed = false;
+      let watchdog: number | undefined;
+
       const done = () => {
         if (completed) return;
         completed = true;
+        if (watchdog) clearTimeout(watchdog);
         this.activeUtterance = null;
         (window as unknown as { __activeUtterance?: unknown }).__activeUtterance = null;
         if (!this.isStopped) onDone?.();
@@ -161,9 +273,30 @@ class TtsManager {
 
       utterance.onend = done;
       utterance.onerror = (event) => {
-        console.warn('Speech utterance error:', event);
-        done();
+        console.warn('Speech utterance error, falling back to Audio TTS:', event);
+        if (!completed) {
+          completed = true;
+          if (watchdog) clearTimeout(watchdog);
+          this.activeUtterance = null;
+          (window as unknown as { __activeUtterance?: unknown }).__activeUtterance = null;
+          if (!this.isStopped) {
+            void this.playAudioTts(text, rate, onDone).then(resolve);
+          } else {
+            resolve();
+          }
+        }
       };
+
+      // Watchdog: If Web Speech engine stalls and doesn't fire within 1.2s, auto fallback
+      watchdog = window.setTimeout(() => {
+        if (!completed && !this.isStopped) {
+          console.warn('Web speech engine stalled; switching to Audio TTS');
+          window.speechSynthesis?.cancel();
+          completed = true;
+          this.activeUtterance = null;
+          void this.playAudioTts(text, rate, onDone).then(resolve);
+        }
+      }, 1200);
 
       try {
         window.speechSynthesis.speak(utterance);
@@ -172,7 +305,7 @@ class TtsManager {
           window.speechSynthesis.resume();
         }
       } catch (speakError) {
-        console.warn('speechSynthesis.speak failed:', speakError);
+        console.warn('speechSynthesis.speak failed, using Audio TTS:', speakError);
         done();
       }
     });
