@@ -22,41 +22,7 @@ const nativeVoiceIndex = (voiceId?: string) => {
   return Number.isInteger(index) && index >= 0 ? index : undefined;
 };
 
-function splitIntoChunks(text: string, maxLen = 180): string[] {
-  const clean = text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-  if (!clean) return [];
-  if (clean.length <= maxLen) return [clean];
 
-  const sentences = clean.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [clean];
-  const chunks: string[] = [];
-  let current = '';
-
-  for (const sentence of sentences) {
-    const trimmed = sentence.trim();
-    if (!trimmed) continue;
-    if ((current + ' ' + trimmed).trim().length <= maxLen) {
-      current = (current + ' ' + trimmed).trim();
-    } else {
-      if (current) chunks.push(current);
-      if (trimmed.length <= maxLen) {
-        current = trimmed;
-      } else {
-        const words = trimmed.split(' ');
-        current = '';
-        for (const word of words) {
-          if ((current + ' ' + word).trim().length <= maxLen) {
-            current = (current + ' ' + word).trim();
-          } else {
-            if (current) chunks.push(current);
-            current = word;
-          }
-        }
-      }
-    }
-  }
-  if (current) chunks.push(current);
-  return chunks;
-}
 
 export const nativeTts = {
   isAvailable: () => Capacitor.isNativePlatform(),
@@ -130,12 +96,12 @@ class TtsManager {
       }
     }
 
-    // On web: check if natural cloud voice requested or if system has 0 voices (e.g. Linux Chrome)
+    // On web: default to Jobtic AI Voice if no voiceName, if cloud-ai-voice selected, or if system has 0 voices (e.g. Linux Chrome)
     const browserVoices = (typeof window !== 'undefined' && window.speechSynthesis)
       ? window.speechSynthesis.getVoices()
       : [];
 
-    if (voiceName === 'cloud-ai-voice' || browserVoices.length === 0) {
+    if (!voiceName || voiceName === 'cloud-ai-voice' || browserVoices.length === 0) {
       await this.playAudioTts(cleanText, rate, onDone);
       return;
     }
@@ -151,46 +117,53 @@ class TtsManager {
 
   public playAudioTts(text: string, rate = 1, onDone?: () => void): Promise<void> {
     return new Promise(resolve => {
-      const chunks = splitIntoChunks(text, 180);
-      if (chunks.length === 0) {
+      const cleanText = text.replace(/<[^>]*>/g, '').trim();
+      if (!cleanText) {
         onDone?.();
         resolve();
         return;
       }
 
-      let currentIdx = 0;
-      const playNext = () => {
-        if (this.isStopped || currentIdx >= chunks.length) {
-          this.activeAudio = null;
-          if (!this.isStopped) onDone?.();
-          resolve();
-          return;
+      // Determine endpoint based on runtime environment
+      let ttsEndpoint = '/api/tts';
+      if (typeof window !== 'undefined') {
+        const origin = window.location.origin;
+        if (
+          Capacitor.isNativePlatform() ||
+          (!origin.includes('jobtic.vercel.app') &&
+            !origin.startsWith('http://localhost') &&
+            !origin.startsWith('http://127.0.0.1'))
+        ) {
+          ttsEndpoint = 'https://jobtic.vercel.app/api/tts';
         }
+      }
 
-        const chunk = chunks[currentIdx++];
-        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=en&client=tw-ob`;
-        const audio = new Audio(url);
-        this.activeAudio = audio;
-        audio.playbackRate = Math.max(0.7, Math.min(rate || 1.0, 1.4));
+      const url = `${ttsEndpoint}?text=${encodeURIComponent(cleanText)}`;
+      const audio = new Audio();
+      this.activeAudio = audio;
+      audio.crossOrigin = 'anonymous';
+      audio.playbackRate = Math.max(0.7, Math.min(rate || 1.0, 1.4));
 
-        audio.onended = () => {
-          playNext();
-        };
-
-        audio.onerror = () => {
-          console.warn('Audio TTS chunk playback failed; advancing');
-          playNext();
-        };
-
-        audio.play().catch(err => {
-          console.warn('Audio play was prevented or failed:', err);
-          this.activeAudio = null;
-          if (!this.isStopped) onDone?.();
-          resolve();
-        });
+      let finished = false;
+      const cleanup = () => {
+        if (finished) return;
+        finished = true;
+        this.activeAudio = null;
+        if (!this.isStopped) onDone?.();
+        resolve();
       };
 
-      playNext();
+      audio.onended = cleanup;
+      audio.onerror = (e) => {
+        console.warn('Jobtic AI Audio playback error:', e);
+        cleanup();
+      };
+
+      audio.src = url;
+      audio.play().catch(err => {
+        console.warn('Audio play was prevented or interrupted:', err);
+        cleanup();
+      });
     });
   }
 
@@ -271,6 +244,13 @@ class TtsManager {
         resolve();
       };
 
+      utterance.onstart = () => {
+        if (watchdog) {
+          clearTimeout(watchdog);
+          watchdog = undefined;
+        }
+      };
+
       utterance.onend = done;
       utterance.onerror = (event) => {
         console.warn('Speech utterance error, falling back to Audio TTS:', event);
@@ -287,7 +267,7 @@ class TtsManager {
         }
       };
 
-      // Watchdog: If Web Speech engine stalls and doesn't fire within 1.2s, auto fallback
+      // Watchdog: If Web Speech engine stalls and doesn't fire within 600ms, auto fallback
       watchdog = window.setTimeout(() => {
         if (!completed && !this.isStopped) {
           console.warn('Web speech engine stalled; switching to Audio TTS');
@@ -296,7 +276,7 @@ class TtsManager {
           this.activeUtterance = null;
           void this.playAudioTts(text, rate, onDone).then(resolve);
         }
-      }, 1200);
+      }, 600);
 
       try {
         window.speechSynthesis.speak(utterance);
