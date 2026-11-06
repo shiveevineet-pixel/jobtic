@@ -87,6 +87,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
+    // Process OAuth PKCE return code if present in URL
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        const code = url.searchParams.get('code');
+        if (code) {
+          supabase.auth.exchangeCodeForSession(code)
+            .then(({ data, error }) => {
+              if (error) {
+                console.warn('PKCE exchange error:', error);
+              } else if (data?.session && alive) {
+                applySession(data.session);
+              }
+              window.history.replaceState({}, document.title, window.location.pathname);
+            })
+            .catch(err => {
+              console.warn('PKCE exchange failed:', err);
+            });
+        }
+      } catch {
+        // window.location parsing fallback
+      }
+    }
+
     // Get active session with network failure safeguard
     supabase.auth.getSession()
       .then(({ data: { session }, error }) => {

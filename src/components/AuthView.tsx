@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, Eye, EyeOff, ArrowRight, ShieldAlert, Smartphone, Download } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,23 @@ export const AuthView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const url = new URL(window.location.href);
+      const hash = window.location.hash.replace(/^#/, '');
+      const hashParams = new URLSearchParams(hash);
+      const desc = hashParams.get('error_description') || url.searchParams.get('error_description');
+      const err = hashParams.get('error') || url.searchParams.get('error');
+      if (desc || err) {
+        setErrorMsg(decodeURIComponent((desc || err || '').replace(/\+/g, ' ')));
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true); setErrorMsg(''); setSuccessMsg('');
