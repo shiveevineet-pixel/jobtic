@@ -21,7 +21,7 @@ client. Select **Android** and enter:
 
 Create this client in the **same project** as the existing Web OAuth client:
 
-`237511348320-4gl13th13g91d95nanfgj40anunm8t9f.apps.googleusercontent.com`
+`237511348320-3lrdbt46tns1ev74rnpv15adjut3uqq9.apps.googleusercontent.com`
 
 The Android client ID does not need to be pasted into the APK. The native SDK
 uses the existing Web client ID as the audience for the ID token. No Firebase

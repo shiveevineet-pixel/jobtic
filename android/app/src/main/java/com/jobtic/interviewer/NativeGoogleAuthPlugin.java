@@ -35,7 +35,7 @@ import java.util.Locale;
 public class NativeGoogleAuthPlugin extends Plugin {
     // Public Web OAuth client ID. The client secret belongs only in Supabase.
     private static final String WEB_CLIENT_ID =
-        "237511348320-4gl13th13g91d95nanfgj40anunm8t9f.apps.googleusercontent.com";
+        "237511348320-3lrdbt46tns1ev74rnpv15adjut3uqq9.apps.googleusercontent.com";
     private CancellationSignal cancellationSignal;
     private PluginCall pendingCall;
 
