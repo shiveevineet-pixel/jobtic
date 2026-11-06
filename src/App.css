@@ -2431,12 +2431,12 @@
 .auth-android-promo {
   margin-top: 18px;
   padding: 14px 16px;
-  border-radius: var(--radius-md);
-  background: var(--surface-subtle);
-  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md, 12px);
+  background: var(--bg-deep, #f2f2f2);
+  border: 1px solid var(--border-dim, #dedede);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   text-align: left;
 }
 
@@ -2449,67 +2449,72 @@
 .android-promo-icon {
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-full);
-  background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full, 999px);
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-dim, #dedede);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-primary);
+  color: var(--text-primary, #171717);
   flex-shrink: 0;
 }
 
 .android-promo-text strong {
   display: block;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-weight: 700;
+  color: var(--text-primary, #171717);
 }
 
 .android-promo-text span {
   display: block;
   font-size: 11px;
-  color: var(--text-secondary);
+  color: var(--text-secondary, #595959);
 }
 
 .btn-android-download {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 8px 14px;
-  font-size: 12px;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
   font-weight: 600;
-  color: #ffffff;
-  background: var(--accent-black);
-  border-radius: var(--radius-sm);
+  color: #ffffff !important;
+  background: #171717 !important;
+  border: 1px solid #171717;
+  border-radius: var(--radius-sm, 8px);
   text-decoration: none;
   transition: all 180ms ease;
   width: 100%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  cursor: pointer;
 }
 
 .btn-android-download:hover {
-  background: #27272a;
+  background: #333333 !important;
+  border-color: #333333;
+  color: #ffffff !important;
   transform: translateY(-1px);
 }
 
 .header-app-download {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
+  gap: 6px;
+  padding: 6px 12px;
   font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  background: var(--surface-subtle);
-  border: 1px solid var(--border-dim);
-  border-radius: var(--radius-full);
+  font-weight: 600;
+  color: var(--text-primary, #171717);
+  background: var(--bg-deep, #ededed);
+  border: 1px solid var(--border-dim, #dedede);
+  border-radius: var(--radius-full, 999px);
   text-decoration: none;
   transition: all 160ms ease;
 }
 
 .header-app-download:hover {
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
-  background: var(--surface-card);
+  color: #ffffff;
+  background: #171717;
+  border-color: #171717;
 }
