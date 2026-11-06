@@ -4,6 +4,7 @@ dist/
 .env.*
 !.env.example
 *.apk
+!public/*.apk
 *.aab
 *.jks
 *.keystore

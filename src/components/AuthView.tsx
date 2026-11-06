@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Check, Eye, EyeOff, ArrowRight, ShieldAlert } from 'lucide-react';
+import { Check, Eye, EyeOff, ArrowRight, ShieldAlert, Smartphone, Download } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../context/AuthContext';
 import AIAvatar3D from './AIAvatar3D';
 
@@ -83,6 +84,20 @@ export const AuthView: React.FC = () => {
           <div className="auth-switch">{isSignUp ? 'Already have an account?' : 'New to Jobtic?'} <button className="text-button" type="button" disabled={loading} onClick={() => { setIsSignUp(!isSignUp); setErrorMsg(''); setSuccessMsg(''); }}>{isSignUp ? 'Sign in' : 'Create an account'}</button></div>
         </>}
         <div className="auth-guest-section"><button type="button" className="btn-secondary auth-guest" disabled={loading} onClick={() => signInMock('guest@jobtic.com', 'Guest')}>Explore as guest <ArrowRight size={16} /></button><p>Guest data stays separate on this device. Sign in for AI features and cloud-saved interviews.</p></div>
+        {!Capacitor.isNativePlatform() && (
+          <div className="auth-android-promo" role="region" aria-label="Android app download">
+            <div className="android-promo-header">
+              <span className="android-promo-icon" aria-hidden="true"><Smartphone size={16} /></span>
+              <div className="android-promo-text">
+                <strong>Try our Android App</strong>
+                <span>Experience smooth mock interviews on mobile</span>
+              </div>
+            </div>
+            <a href="/Jobtic.apk" download="Jobtic.apk" className="btn-android-download">
+              <Download size={14} /> Download APK (v2.1)
+            </a>
+          </div>
+        )}
       </section>
     </div>
   );
